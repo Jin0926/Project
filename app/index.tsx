@@ -5,31 +5,49 @@ import {
   TextInput,
   Button,
   StyleSheet,
-  Alert,
+  Modal,
+  TouchableOpacity,
 } from "react-native";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebase/config";
-import { Link } from "expo-router"; // ✅ Add this
+import { Link, useRouter } from "expo-router";
 
 const Index: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const router = useRouter();
+
+  // Modal states
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalMessage, setModalMessage] = useState("");
+  const [isSuccess, setIsSuccess] = useState(false);
 
   const handleLogin = async () => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       console.log("✅ Login successful:", user.email);
-      Alert.alert("Login Success", `Welcome back, ${user.email}`);
+      setModalMessage(`Welcome back, ${user.email}`);
+      setIsSuccess(true);
+      setModalVisible(true);
+
+      // Navigate after a delay
+      setTimeout(() => {
+        setModalVisible(false);
+        router.replace("/homescreen");
+      }, 2000);
     } catch (error: any) {
       console.error("❌ Login error:", error);
-      Alert.alert("Login Failed", error.message || "Unknown error occurred.");
+      setModalMessage(error.message || "Unknown error occurred.");
+      setIsSuccess(false);
+      setModalVisible(true);
     }
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Login to Inventory System</Text>
+
       <TextInput
         style={styles.input}
         placeholder="Email"
@@ -45,12 +63,31 @@ const Index: React.FC = () => {
         secureTextEntry
         onChangeText={setPassword}
       />
+
       <Button title="Login" onPress={handleLogin} />
-      
-      {/* ✅ Sign Up button as a link */}
+
       <Link href="/signup" asChild>
         <Button title="Don't have an account? Sign Up" />
       </Link>
+
+      {/* ✅ Modal Notification */}
+      <Modal
+        animationType="fade"
+        transparent
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, isSuccess ? styles.success : styles.error]}>
+            <Text style={styles.modalText}>{modalMessage}</Text>
+            {!isSuccess && (
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <Text style={styles.closeButton}>Close</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -77,5 +114,33 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     marginBottom: 15,
     paddingHorizontal: 10,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    width: "80%",
+    padding: 25,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  success: {
+    backgroundColor: "#d4edda",
+  },
+  error: {
+    backgroundColor: "#f8d7da",
+  },
+  modalText: {
+    fontSize: 16,
+    textAlign: "center",
+    marginBottom: 15,
+  },
+  closeButton: {
+    fontSize: 16,
+    color: "#007bff",
+    marginTop: 10,
   },
 });

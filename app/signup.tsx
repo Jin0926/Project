@@ -1,4 +1,3 @@
-// app/Signup.tsx
 import React, { useState } from "react";
 import {
   View,
@@ -6,24 +5,33 @@ import {
   TextInput,
   Button,
   StyleSheet,
-  Alert,
+  Modal,
+  ActivityIndicator,
 } from "react-native";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebase/config";
+import { useRouter } from "expo-router";
 
 const Signup: React.FC = () => {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
 
   const handleSignup = async () => {
+    setLoading(true);
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-      console.log("✅ User registered:", user.email);
-      Alert.alert("Signup Success", `Account created for ${user.email}`);
+      await createUserWithEmailAndPassword(auth, email, password);
+      setModalVisible(true);
+      setTimeout(() => {
+        setModalVisible(false);
+        router.replace("/"); // Redirect to login page
+      }, 3000);
     } catch (error: any) {
-      console.error("❌ Signup error:", error.code, error.message);
-      Alert.alert("Signup Failed", error.message || "Unknown error occurred.");
+      alert(error.message || "Signup failed.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -33,19 +41,31 @@ const Signup: React.FC = () => {
       <TextInput
         style={styles.input}
         placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
         autoCapitalize="none"
         keyboardType="email-address"
+        value={email}
+        onChangeText={setEmail}
       />
       <TextInput
         style={styles.input}
-        placeholder="Password (min 6 chars)"
-        value={password}
+        placeholder="Password"
         secureTextEntry
+        value={password}
         onChangeText={setPassword}
       />
-      <Button title="Sign Up" onPress={handleSignup} />
+      <Button title={loading ? "Creating Account..." : "Sign Up"} onPress={handleSignup} disabled={loading} />
+
+      {/* 🎉 Modal for success message */}
+      <Modal visible={modalVisible} transparent animationType="slide">
+        <View style={styles.modalBackground}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalText}>🎉 Congratulations!</Text>
+            <Text>Your account has been created.</Text>
+            <ActivityIndicator style={{ marginTop: 20 }} />
+            <Text style={{ marginTop: 10 }}>Redirecting to login...</Text>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -72,5 +92,22 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     marginBottom: 15,
     paddingHorizontal: 10,
+  },
+  modalBackground: {
+    flex: 1,
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
+    paddingHorizontal: 30,
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    padding: 25,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  modalText: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 10,
   },
 });
