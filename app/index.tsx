@@ -24,25 +24,41 @@ const Index: React.FC = () => {
 
   const handleLogin = async () => {
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-      console.log("✅ Login successful:", user.email);
-      setModalMessage(`Welcome back, ${user.email}`);
+      const res = await fetch(
+        "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=AIzaSyAL38RxF21hs7Kb6QzHMjFz2Nm7MI9Vcf0",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email,
+            password,
+            returnSecureToken: true,
+          }),
+        }
+      );
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error.message || "Login failed");
+
+      console.log("✅ Login successful:", data.email);
+      setModalMessage(`Welcome back, ${data.email}`);
       setIsSuccess(true);
       setModalVisible(true);
 
-      // Navigate after a delay
       setTimeout(() => {
         setModalVisible(false);
         router.replace("/homescreen");
       }, 2000);
     } catch (error: any) {
-      console.error("❌ Login error:", error);
+      console.error("❌ Login error:", error.message);
       setModalMessage(error.message || "Unknown error occurred.");
       setIsSuccess(false);
       setModalVisible(true);
     }
   };
+
 
   return (
     <View style={styles.container}>

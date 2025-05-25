@@ -22,11 +22,28 @@ const Signup: React.FC = () => {
   const handleSignup = async () => {
     setLoading(true);
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
+      const res = await fetch(
+        "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=AIzaSyAL38RxF21hs7Kb6QzHMjFz2Nm7MI9Vcf0",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email,
+            password,
+            returnSecureToken: true,
+          }),
+        }
+      );
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error.message || "Signup failed");
+
       setModalVisible(true);
       setTimeout(() => {
         setModalVisible(false);
-        router.replace("/"); // Redirect to login page
+        router.replace("/"); // Redirect to login
       }, 3000);
     } catch (error: any) {
       alert(error.message || "Signup failed.");
@@ -34,6 +51,7 @@ const Signup: React.FC = () => {
       setLoading(false);
     }
   };
+
 
   return (
     <View style={styles.container}>
