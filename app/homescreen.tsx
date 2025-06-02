@@ -10,17 +10,7 @@ import {
   ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { signOut } from "firebase/auth";
-import { auth } from "../firebase/config";
 import { Ionicons } from "@expo/vector-icons";
-import {
-  getDatabase,
-  ref,
-  push,
-  onValue,
-  update,
-  remove,
-} from "firebase/database";
 
 const Homescreen: React.FC = () => {
   const router = useRouter();
@@ -28,11 +18,15 @@ const Homescreen: React.FC = () => {
   const [inventory, setInventory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Modal states
-  const [confirmVisible, setConfirmVisible] = useState(false);
-  const [successVisible, setSuccessVisible] = useState(false);
+  // State for search query
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Separate modal states for logout and delete confirmation
+  const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<any>(null);
 
   // Form input states
   const [name, setName] = useState("");
@@ -70,6 +64,15 @@ const Homescreen: React.FC = () => {
     fetchInventory();
   }, []);
 
+  // Function to handle search
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query);
+  };
+
+  // Filter inventory based on search query
+  const filteredInventory = inventory.filter((item) =>
+    item.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const resetForm = () => {
     setName("");
@@ -84,8 +87,9 @@ const Homescreen: React.FC = () => {
   };
 
   const handleSaveItem = async () => {
-    if (!name || !quantity) {
-      Alert.alert("Validation Error", "Name and Quantity are required.");
+    // Validate quantity to ensure it's a number
+    if (!name || !quantity || isNaN(Number(quantity))) {
+      Alert.alert("Validation Error", "Quantity must be a valid number.");
       return;
     }
 
@@ -125,8 +129,6 @@ const Homescreen: React.FC = () => {
     }
   };
 
-
-
   const handleEdit = (item: any) => {
     setEditingItem(item);
     setName(item.name);
@@ -138,51 +140,59 @@ const Homescreen: React.FC = () => {
   };
 
   const handleUpdateItem = async () => {
-    if (!editingItem) return;
+      if (!editingItem || isNaN(Number(quantity)) || !quantity) {
+        Alert.alert("Validation Error", "Quantity must be a valid number.");
+        return;
+      }
 
-    try {
-      const updatedItem = {
-        name,
-        quantity: parseInt(quantity),
-        size,
-        color,
-        brand,
-      };
+      try {
+        const updatedItem = {
+          name,
+          quantity: parseInt(quantity),
+          size,
+          color,
+          brand,
+        };
 
-      const res = await fetch(
-        `https://sampleapp-6afa9-default-rtdb.firebaseio.com/items/${editingItem.id}.json`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(updatedItem),
-        }
-      );
+        const res = await fetch(
+          `https://sampleapp-6afa9-default-rtdb.firebaseio.com/items/${editingItem.id}.json`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(updatedItem),
+          }
+        );
 
-      if (!res.ok) throw new Error("Failed to update item.");
+        if (!res.ok) throw new Error("Failed to update item.");
 
-      setInventory((prev) =>
-        prev.map((item) =>
-          item.id === editingItem.id ? { ...item, ...updatedItem } : item
-        )
-      );
+        setInventory((prev) =>
+          prev.map((item) =>
+            item.id === editingItem.id ? { ...item, ...updatedItem } : item
+          )
+        );
 
-      resetForm();
-      setEditingItem(null);
-      setEditModalVisible(false);
-      Alert.alert("Success", "Item updated successfully!");
-    } catch (error: any) {
-      Alert.alert("Error", error.message || "Failed to update item.");
-    }
+        resetForm();
+        setEditingItem(null);
+        setEditModalVisible(false);
+        Alert.alert("Success", "Item updated successfully!");
+      } catch (error: any) {
+        Alert.alert("Error", error.message || "Failed to update item.");
+      }
+    };
+
+  const handleDelete = (item: any) => {
+    setItemToDelete(item);
+    setDeleteConfirmVisible(true); // Show delete confirmation modal
   };
 
+  const confirmDelete = async () => {
+    if (!itemToDelete) return;
 
-
-  const handleDelete = async (id: string) => {
     try {
       const res = await fetch(
-        `https://sampleapp-6afa9-default-rtdb.firebaseio.com/items/${id}.json`,
+        `https://sampleapp-6afa9-default-rtdb.firebaseio.com/items/${itemToDelete.id}.json`,
         {
           method: "DELETE",
         }
@@ -190,58 +200,58 @@ const Homescreen: React.FC = () => {
 
       if (!res.ok) throw new Error("Failed to delete item.");
 
-      setInventory((prev) => prev.filter((item) => item.id !== id));
+      setInventory((prev) => prev.filter((item) => item.id !== itemToDelete.id));
       Alert.alert("Deleted", "Item removed successfully.");
+
+      setDeleteConfirmVisible(false); // Hide the delete confirmation modal
+      setItemToDelete(null); // Clear the item being deleted
     } catch (error: any) {
       Alert.alert("Error", error.message || "Failed to delete item.");
     }
   };
 
-
-
-  const handleLogout = async () => {
-    try {
-      setConfirmVisible(false);
-      // If you store a token in async storage, clear it here
-      // await AsyncStorage.removeItem("userToken");
-
-      setSuccessVisible(true);
-      setTimeout(() => {
-        setSuccessVisible(false);
-        router.replace("/"); // Redirect to login
-      }, 2000);
-    } catch (error: any) {
-      setConfirmVisible(false);
-      alert(error.message || "Logout failed.");
-    }
+  const handleLogout = () => {
+    setLogoutConfirmVisible(true); // Show logout confirmation modal
   };
 
   const confirmLogout = () => {
-    setConfirmVisible(true);
+    // Add your logout logic here (e.g., clearing token, signing out, etc.)
+    setLogoutConfirmVisible(false);
+    setTimeout(() => {
+      router.replace("/"); // Redirect to login screen
+    }, 2000);
   };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Inventory</Text>
 
+      {/* Search Bar */}
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Search items"
+        value={searchQuery}
+        onChangeText={handleSearchChange}
+      />
+
       {loading ? (
         <Text>Loading...</Text>
-      ) : inventory.length === 0 ? (
+      ) : filteredInventory.length === 0 ? (
         <Text>No items found.</Text>
       ) : (
-        inventory.map((item) => (
+        filteredInventory.map((item) => (
           <View key={item.id} style={styles.card}>
             <Text style={styles.cardTitle}>{item.name}</Text>
             <Text>Quantity: {item.quantity}</Text>
-            {item.size ? <Text>Size: {item.size}</Text> : null}
-            {item.color ? <Text>Color: {item.color}</Text> : null}
-            {item.brand ? <Text>Brand: {item.brand}</Text> : null}
+            {item.size && <Text>Size: {item.size}</Text>}
+            {item.color && <Text>Color: {item.color}</Text>}
+            {item.brand && <Text>Brand: {item.brand}</Text>}
 
             <View style={styles.cardButtons}>
               <TouchableOpacity onPress={() => handleEdit(item)}>
                 <Ionicons name="create-outline" size={24} color="blue" />
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleDelete(item.id)}>
+              <TouchableOpacity onPress={() => handleDelete(item)}>
                 <Ionicons name="trash-outline" size={24} color="red" />
               </TouchableOpacity>
             </View>
@@ -255,7 +265,7 @@ const Homescreen: React.FC = () => {
 
       <TouchableOpacity
         style={[styles.button, { backgroundColor: "#444" }]}
-        onPress={confirmLogout}
+        onPress={handleLogout}
       >
         <Text style={styles.buttonText}>Logout</Text>
       </TouchableOpacity>
@@ -296,14 +306,27 @@ const Homescreen: React.FC = () => {
         </View>
       </Modal>
 
+      {/* Delete Confirmation Modal */}
+      <Modal visible={deleteConfirmVisible} transparent animationType="fade">
+        <View style={styles.confirmModal}>
+          <Text style={styles.modalTitle}>Are you sure you want to delete this item?</Text>
+          <TouchableOpacity style={styles.button} onPress={confirmDelete}>
+            <Text style={styles.buttonText}>Yes, Delete</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setDeleteConfirmVisible(false)}>
+            <Text style={styles.cancel}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
       {/* Logout Confirmation Modal */}
-      <Modal visible={confirmVisible} transparent animationType="fade">
+      <Modal visible={logoutConfirmVisible} transparent animationType="fade">
         <View style={styles.confirmModal}>
           <Text style={styles.modalTitle}>Are you sure you want to log out?</Text>
-          <TouchableOpacity style={styles.button} onPress={handleLogout}>
+          <TouchableOpacity style={styles.button} onPress={confirmLogout}>
             <Text style={styles.buttonText}>Yes, Logout</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => setConfirmVisible(false)}>
+          <TouchableOpacity onPress={() => setLogoutConfirmVisible(false)}>
             <Text style={styles.cancel}>Cancel</Text>
           </TouchableOpacity>
         </View>
@@ -322,6 +345,13 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     marginBottom: 20,
+  },
+  searchInput: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    padding: 10,
+    borderRadius: 6,
+    marginBottom: 15,
   },
   card: {
     backgroundColor: "#f2f2f2",

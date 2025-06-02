@@ -40,8 +40,35 @@ const Index: React.FC = () => {
       );
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error.message || "Login failed");
 
+      if (!res.ok) {
+        let errorMessage = "Login failed.";
+        if (data.error) {
+          switch (data.error.message) {
+            case "MISSING_PASSWORD":
+              errorMessage = "Password is required.";
+              break;
+            case "INVALID_LOGIN_CREDENTIALS":
+              errorMessage = "Email is not signed up.";
+              break;
+            case "INVALID_EMAIL":
+              errorMessage = "Missing email";
+              break;
+            case "USER_DISABLED":
+              errorMessage = "Your account has been disabled.";
+              break;
+            case "INVALID_PASSWORD":
+              errorMessage = "Incorrect password.";
+              break;
+            default:
+              errorMessage = data.error.message || "Unknown error occurred.";
+              break;
+          }
+        }
+        throw new Error(errorMessage);
+      }
+
+      // If login is successful
       console.log("✅ Login successful:", data.email);
       setModalMessage(`Welcome back, ${data.email}`);
       setIsSuccess(true);
@@ -51,13 +78,14 @@ const Index: React.FC = () => {
         setModalVisible(false);
         router.replace("/homescreen");
       }, 2000);
+
     } catch (error: any) {
-      console.error("❌ Login error:", error.message);
       setModalMessage(error.message || "Unknown error occurred.");
       setIsSuccess(false);
       setModalVisible(true);
     }
   };
+
 
 
   return (

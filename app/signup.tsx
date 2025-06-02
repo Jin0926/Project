@@ -38,7 +38,31 @@ const Signup: React.FC = () => {
       );
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error.message || "Signup failed");
+
+      if (!res.ok) {
+        // Handle errors and display more user-friendly messages
+        let errorMessage = "Signup failed.";
+        if (data.error) {
+          switch (data.error.message) {
+            case "MISSING_EMAIL":
+              errorMessage = "Email required";
+              break;
+            case "INVALID_EMAIL":
+              errorMessage = "Please provide a valid email address";
+              break;
+            case "MISSING_PASSWORD":
+              errorMessage = "Password required";
+              break;
+            case "WEAK_PASSWORD":
+              errorMessage = "Password must be at least 6 characters";
+              break;
+            default:
+              errorMessage = data.error.message;
+              break;
+          }
+        }
+        throw new Error(errorMessage);
+      }
 
       setModalVisible(true);
       setTimeout(() => {
@@ -51,6 +75,7 @@ const Signup: React.FC = () => {
       setLoading(false);
     }
   };
+
 
 
   return (
